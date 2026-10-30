@@ -2923,8 +2923,8 @@ const ACT = {
     if(!n) return toast('Nessuna nota da esportare');
     downloadText(`hudl_${m.date || ''}_${slug(m.opp)}.xml`, xml, 'application/xml'); closeModal(); toast(`Esportate ${n} clip per Hudl`);
   },
-  exportMatch(el){ const m = S.matches[el.dataset.id]; download(`partita_${m.date||''}_${slug(m.opp)}.json`, {type:'match', app:'panchina-u16', v:1, exported:new Date().toISOString(), match:m}); },
-  exportAll(){ download(`panchina-backup_${todayISO()}.json`, {type:'backup', app:'panchina-u16', v:1, exported:new Date().toISOString(), data:{squad:S.squad, spTpl:S.spTpl || null, matches:S.matches}}); },
+  exportMatch(el){ const m = S.matches[el.dataset.id]; download(`partita_${m.date||''}_${slug(m.opp)}.json`, {type:'match', app:'panchina-ti15', v:1, exported:new Date().toISOString(), match:m}); },
+  exportAll(){ download(`panchina-backup_${todayISO()}.json`, {type:'backup', app:'panchina-ti15', v:1, exported:new Date().toISOString(), data:{squad:S.squad, spTpl:S.spTpl || null, matches:S.matches}}); },
   print(){ $('#report').innerHTML = buildReport(M()); window.print(); },
   newMatch(){ confirmModal('Nuova partita', 'La partita attuale resta salvata in archivio. La nuova partita parte con la tua rosa predefinita.', 'Crea', () => { const cur = M(); if(cur.clock.run){ cur.clock.el += (Date.now()-cur.clock.t0)/1000; cur.clock.run = false; } newMatch(); UI.sel = null; UI.intHalf = 1; S.view = 'pre'; setActive(); save(true); render(); }); },
   openMatch(el){ const cur = M(); if(cur.clock.run){ cur.clock.el += (Date.now()-cur.clock.t0)/1000; cur.clock.run = false; cur.mod = Date.now(); S.dirty = true; scheduleSync(); } S.cur = el.dataset.id; UI.sel = null; setActive(); save(true, {pref:true}); render(); toast(myRole() === 'all' ? 'Partita aperta: è anche quella dello staff' : 'Partita aperta'); },
@@ -2991,7 +2991,7 @@ document.addEventListener('keydown', e => {
    Il file JSON sta nella cartella dell'app su Dropbox (Applicazioni/<nome app>/panchina-db.json).
    Collegamento OAuth "PKCE" con codice da copiare: nessun segreto nella pagina, nessun rientro automatico. */
 const DBX_APP_KEY = '';            /* App key dell'app Dropbox (si può inserire anche dall'Archivio) */
-const DBX_PATH = '/panchina-db.json';
+const DBX_PATH = '/panchina-ticino-db.json';
 const DBXK = 'panchinaTI15.dbx';
 let DBX = (() => { try{ return JSON.parse(localStorage.getItem(DBXK)) || {}; }catch(e){ return {}; } })();
 function dbxSave(){ try{ localStorage.setItem(DBXK, JSON.stringify(DBX)); }catch(e){} }
@@ -3041,7 +3041,7 @@ async function dbxDownload(){
   if(!r.ok) throw new Error('download non riuscito (' + r.status + ')');
   const meta = JSON.parse(r.headers.get('dropbox-api-result') || '{}');
   const data = JSON.parse(await r.text());
-  if(!data || data.app !== 'panchina-u16') throw new Error('il file su Dropbox non è un database di Panchina');
+  if(!data || data.app !== 'panchina-ti15') throw new Error('il file su Dropbox non è un database di Panchina');
   return {rev:meta.rev, data};
 }
 async function dbxUpload(data, rev){
@@ -3054,7 +3054,7 @@ async function dbxUpload(data, rev){
   return {rev:(await r.json()).rev};
 }
 const isEmptyMatch = m => m && !m.opp && !(m.their || []).length && !(m.notes || []).length && !(m.plans || []).length && !(m.our || []).some(p => p.st === 'tit');
-function syncPayload(){ return {app:'panchina-u16', v:1, savedAt:Date.now(), metaMod:S.metaMod || 0, squad:S.squad, spTpl:S.spTpl || null, matches:S.matches, deleted:S.deleted || {}}; }
+function syncPayload(){ return {app:'panchina-ti15', v:1, savedAt:Date.now(), metaMod:S.metaMod || 0, squad:S.squad, spTpl:S.spTpl || null, matches:S.matches, deleted:S.deleted || {}}; }
 function mergeRemote(r){
   const conflicts = [], since = DBX.lastSync || 0, del = {...(r.deleted || {})};
   Object.entries(S.deleted || {}).forEach(([k, v]) => { if(!del[k] || del[k] < v) del[k] = v; });
@@ -3103,7 +3103,7 @@ async function syncNow(manual){
 /* ============ Lavoro in squadra: Firebase Realtime Database (REST + streaming, senza librerie) ============
    Ogni pezzo della partita (dati generali, ogni giocatore, ogni nota, ogni schema…) è un nodo separato,
    così due persone che modificano cose diverse nello stesso momento non si cancellano a vicenda. */
-const FB_CFG = {apiKey:'', databaseURL:''};   // progetto Firebase del Partenariato Ticino
+const FB_CFG = {apiKey:'AIzaSyCCPWtT8qOM07-RWMbXfdXEiDNftyXuArA', databaseURL:'https://panchina-ticino-default-rtdb.europe-west1.firebasedatabase.app'};   // progetto Firebase del Partenariato Ticino
 const FBK = 'panchinaTI15.fb';
 let FB = (() => { try{ return JSON.parse(localStorage.getItem(FBK)) || {}; }catch(e){ return {}; } })();
 const FBX = {id:null, exp:0, es:null, remote:null, state:'', msg:'', pushing:false, timer:null, saveT:null, pending:false, ready:false};
@@ -3114,7 +3114,7 @@ function fbOn(){ if(window.GUEST) return false; const c = fbCfg(); return !!(c.a
 function fbState(st, msg){ FBX.state = st; FBX.msg = msg || ''; updSave(); const c = $('#fbStatus'); if(c) c.innerHTML = fbStatusText(); }
 const fbEmailKey = e => String(e || '').toLowerCase().replace(/\./g, ',');
 /* nome utente senza @ → indirizzo interno del progetto (Firebase vuole un'email, ma non la verifica) */
-const FB_USER_DOMAIN = 'panchina-u16.firebaseapp.com';
+const FB_USER_DOMAIN = 'panchina-ticino.firebaseapp.com';
 const fbLoginId = u => { u = String(u || '').trim().toLowerCase(); return u.includes('@') ? u : u + '@' + FB_USER_DOMAIN; };
 const fbShowUser = e => String(e || '').replace('@' + FB_USER_DOMAIN, '');
 function fbStatusText(){
@@ -3208,7 +3208,7 @@ ACT.setActiveM = el => { S.active = el.dataset.id; save(true); render(); toast('
 /* ============ Link per i giocatori (con apertura e scadenza) ============
    Il contenuto sta sul database in «share/<id>» e si legge senza accesso solo tra «da» e «a» (lo controlla il database, non l'app).
    Si aggiorna da solo quando cambi le palle ferme. */
-const SITE_URL = 'https://mo-foot.github.io/panchina-u16/';
+const SITE_URL = 'https://mo-foot.github.io/panchina-ticino/';
 const shId = () => { const a = new Uint8Array(18); crypto.getRandomValues(a); return [...a].map(b => 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'[b % 56]).join(''); };
 const shUrl = id => (/^https?:$/.test(location.protocol) ? location.origin + location.pathname : SITE_URL) + '?g=' + id;
 const fmtZ = t => new Date(t).toLocaleString('it-CH', {timeZone:'Europe/Zurich', weekday:'short', day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
